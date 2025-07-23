@@ -1,6 +1,14 @@
 <template>
     <form class="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6" @submit.prevent="triggerAction">
         <div>
+            <label for="first-name" class="block mb-2 text-lg font-medium text-gray-900 dark:text-white">Role</label>
+            <select v-model="form.role"
+                class="w-full px-3 py-2 rounded bg-gray-100 border border-gray-300 focus:outline-none">
+                <option value="">Customer</option>
+                <option value="">Seller</option>
+            </select>
+        </div>
+        <div>
             <label for="first-name" class="block mb-2 text-lg font-medium text-gray-900 dark:text-white">
                 First Name
             </label>
@@ -39,6 +47,7 @@
             <input type="email" id="email" v-model="form.email" required placeholder="email@example.com"
                 class="bg-gray-50 border border-gray-300 text-gray-900 text-lg rounded-md focus:ring-emerald-500 focus:border-emerald-500 block w-full px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
         </div>
+
 
         <div>
             <label for="password" class="block mb-2 text-lg font-medium text-gray-900 dark:text-white">

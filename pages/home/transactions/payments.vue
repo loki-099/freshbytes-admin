@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 
 definePageMeta({
-    layout: "home",
+  layout: "home",
 })
 
 const config = useRuntimeConfig()
@@ -12,21 +12,11 @@ const api = config.public.API_LINK
 const accessToken = useCookie('auth-access-token')
 
 const getAuthHeaders = () => {
-    return accessToken.value
-        ? { Authorization: `Bearer ${accessToken.value}` }
-        : {}
+  return accessToken.value
+    ? { Authorization: `Bearer ${accessToken.value}` }
+    : {}
 }
 
-const { data: transactions, pending: pendingTransactions, refresh: refreshTransactions } = await useFetch(
-  `${api}/api/order-items/`,
-  {
-    server: false,
-    headers: computed(() => getAuthHeaders()),
-    onResponseError({ response }) {
-      console.error('Categories API Error:', response.status, response._data);
-    }
-  }
-);
 // State
 const searchQuery = ref('')
 const statusFilter = ref('')
@@ -42,82 +32,129 @@ const isReportVisible = ref(false)
 const activeDropdown = ref(null)
 
 function toggleDropdown(id) {
-    activeDropdown.value = activeDropdown.value === id ? null : id
+  activeDropdown.value = activeDropdown.value === id ? null : id
 }
 
 function closeDropdown() {
-    activeDropdown.value = null
+  activeDropdown.value = null
 }
+
+// Fetch transactions
+const {
+  data: transactions,
+  pending: pendingTransactions,
+  refresh: refreshTransactions,
+  error: fetchError,
+} = await useFetch(`${api}/api/order-items/`, {
+  server: false,
+  headers: computed(() => getAuthHeaders()),
+  onResponseError({ response }) {
+    console.error('Payments API error:', response.status, response._data)
+  },
+})
 
 // const transactions = ref([
 //     {
-//         order_item_id: "oitid00225",
-//         product_name: "Banana",
-//         price: "25.00",
-//         order_id: "91f8d9a8-64c3-49c0-bbb0-6b969bbb411b",
-//         product_id: "b219fa58-ad28-4e54-9844-2e8041e5da03",
-//         product_id2: "b219fa58-ad28-4e54-9844-2e8041e5da03",
-//         quantity: 2,
-//         quanitity2: 5,
-//         itemprice1: "25.00",
-//         itemprice2: "62.00",
-//         total_item_price: "360.00",
-//         customer: "Ej FreshBytes",
-//         email: "ejfresh@gmail.com",
-//         due_date: "23 Jul 2025",
-//         status: "Completed",
-//         created_at: "2025-07-23T15:47:17.816883+08:00",
-//         updated_at: "2025-07-23T15:47:17.816926+08:00"
-//     }
+//         id: '1846325',
+//         customer: 'Freshbytes sdfs',
+//         email: 'ffsfe@exasfe.com',
+//         total: 466,
+//         due_date: '09 June 2025',
+//         status: 'Completed',
+//         quantity: '2',
+//         price: '34',
+//         product_name: 'Eggplant'
+//     },
+//     {
+//         id: '1846326',
+//         customer: 'Jesere',
+//         email: 'nsdf@exdfse.com',
+//         total: 2000,
+//         due_date: '07 June 2025',
+//         status: 'Failed',
+//         quantity: '2',
+//         price: '23',
+//         product_name: 'Orange'
+//     },
+//     {
+//         id: '1834326',
+//         customer: 'Wowowow',
+//         email: 'thisfsf@esfe.com',
+//         total: 2000,
+//         due_date: '09 June 2025',
+//         status: 'Pending',
+//         quantity: '2',
+//         price: '24',
+//         product_name: 'Melon'
+//     },
+//     {
+//         id: '1833236',
+//         customer: 'Wowowow',
+//         email: 'thidff@exsdf.com',
+//         total: 2000,
+//         due_date: '09 June 2025',
+//         status: 'Refunded',
+//         price: '23',
+//         quantity: '3',
+//         product_name: 'Mango'
+//     },
+
 // ]);
 
 const filteredTransactions = computed(() => {
-    let list = transactions.value;
+  let list = transactions.value || []
 
-    if (searchQuery.value) {
-        const q = searchQuery.value.toLowerCase();
-        list = list.filter(
-            t =>
-                t.id.includes(q) ||
-                t.customer.toLowerCase().includes(q) ||
-                t.email.toLowerCase().includes(q)
-        );
-    }
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase()
+    list = list.filter(
+      t =>
+        t.id?.toString().includes(q) ||
+        t.customer?.toLowerCase().includes(q) ||
+        t.email?.toLowerCase().includes(q)
+    )
+  }
 
-    if (statusFilter.value) {
-        list = list.filter(t => t.status === statusFilter.value);
-    }
+  if (statusFilter.value) {
+    list = list.filter(t => t.status === statusFilter.value)
+  }
 
-    if (dateFilter.value === 'last7') {
-        const now = new Date();
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(now.getDate() - 7);
+  if (dateFilter.value === 'last7') {
+    const now = new Date()
+    const sevenDaysAgo = new Date()
+    sevenDaysAgo.setDate(now.getDate() - 7)
 
-        list = list.filter(t => {
-            const [day, monthStr, year] = t.due_date.split(' ');
-            const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-            const month = months.indexOf(monthStr);
-            const dateObj = new Date(year, month, day);
-            return dateObj >= sevenDaysAgo && dateObj <= now;
-        });
-    } else if (dateFilter.value === 'selectDate' && selectedDate.value) {
-        list = list.filter(t => {
-            const [day, monthStr, year] = t.due_date.split(' ');
-            const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-            const month = months.indexOf(monthStr);
-            const dateObj = new Date(year, month, day);
+    list = list.filter(t => {
+      const [day, monthStr, year] = t.due_date.split(' ')
+      const months = [
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      ]
+      const month = months.indexOf(monthStr)
+      const dateObj = new Date(year, month, day)
+      return dateObj >= sevenDaysAgo && dateObj <= now
+    })
+  } else if (dateFilter.value === 'selectDate' && selectedDate.value) {
+    list = list.filter(t => {
+      const [day, monthStr, year] = t.due_date.split(' ')
+      const months = [
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      ]
+      const month = months.indexOf(monthStr)
+      const dateObj = new Date(year, month, day)
 
-            const selected = new Date(selectedDate.value);
-            return (
-                dateObj.getFullYear() === selected.getFullYear() &&
-                dateObj.getMonth() === selected.getMonth() &&
-                dateObj.getDate() === selected.getDate()
-            );
-        });
-    }
+      const selected = new Date(selectedDate.value)
+      return (
+        dateObj.getFullYear() === selected.getFullYear() &&
+        dateObj.getMonth() === selected.getMonth() &&
+        dateObj.getDate() === selected.getDate()
+      )
+    })
+  }
 
-    return list;
-});
+  return list
+})
+
 function updateTransaction() {
     isUpdateVisible.value = false;
 }
@@ -204,24 +241,13 @@ function toggleSelectAll(event) {
                 <option value="Refunded">Refunded</option>
                 <option value="Failed">Failed</option>
             </select>
-
+            
             <select v-model="dateFilter"
                 class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="">All Dates</option>
                 <option value="last7">Last 7 Days</option>
                 <option value="selectDate">Select Date</option>
             </select>
-            <select v-model="dateFilter"
-                class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="">User</option>
-                <option value="last7">Ej FreshBytes</option>
-            </select>
-            <select v-model="dateFilter"
-                class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="">Products</option>
-                <option value="last7">Banana</option>
-            </select>
-
             <input v-if="dateFilter === 'selectDate'" type="date" v-model="selectedDate"
                 class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
             <button class="bg-green-600  hover:bg-green-700 transition text-white px-4 py-2 rounded font-medium">
@@ -253,10 +279,6 @@ function toggleSelectAll(event) {
                             <th class="p-4 text-xs font-medium text-center text-gray-500 uppercase dark:text-gray-400">
                                 Customer</th>
                             <th class="p-4 text-xs font-medium text-center text-gray-500 uppercase dark:text-gray-400">
-                                Product Id</th>
-                            <th class="p-4 text-xs font-medium text-center text-gray-500 uppercase dark:text-gray-400">
-                                Quantity</th>
-                            <th class="p-4 text-xs font-medium text-center text-gray-500 uppercase dark:text-gray-400">
                                 Email
                             </th>
                             <th class="p-4 text-xs font-medium text-center text-gray-500 uppercase dark:text-gray-400">
@@ -283,10 +305,8 @@ function toggleSelectAll(event) {
                             </td>
                             <td class="p-4 text-sm text-gray-900 dark:text-white font-semibold">#{{ t.id }}</td>
                             <td class="p-4 text-sm text-gray-900 dark:text-white">{{ t.customer }}</td>
-                            <td class="p-4 text-sm text-gray-900 dark:text-white">{{ t.product_id }} , {{ t.product_id2 }}</td>
-                            <td class="p-4 text-sm text-gray-900 dark:text-white">{{ t.quantity }} , {{ t.quantity2 }}</td>
                             <td class="p-4 text-sm text-gray-900 dark:text-white">{{ t.email }}</td>
-                            <td class="p-4 text-sm text-gray-900 dark:text-white">${{ t.total_item_price }}</td>
+                            <td class="p-4 text-sm text-gray-900 dark:text-white">${{ t.total }}</td>
                             <td class="p-4 text-sm text-gray-900 dark:text-white">{{ t.due_date }}</td>
                             <td class="p-4 text-center">
                                 <span :class="{
@@ -312,7 +332,7 @@ function toggleSelectAll(event) {
                                     <ul class="py-1 text-sm text-gray-700 dark:text-gray-100">
                                         <li>
                                             <button
-                                                @click.stop="selectedTransaction = t; isUpdateVisible = true; closeDropdown()"
+                                                @click.stop="selectedTransaction = t; isUpdateVisible = true; closeDropdown()" 
                                                 class="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600">
                                                 Update
                                             </button>
@@ -330,58 +350,79 @@ function toggleSelectAll(event) {
 
                         </tr>
                     </tbody>
-
                     <div id="showTransaction" v-if="isTransactionVisible"
                         class="fixed inset-0 z-50 flex items-center justify-center bg-gray-800/30">
-                        <div class="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto font-mono text-base"
+                        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto"
                             @click.stop>
-
-                            <!-- Header -->
-                            <div class="text-center border-b pb-4 mb-6">
+                            <div class="flex flex-col gap-1 mb-4">
                                 <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
-                                    Transaction #{{ selectedTransaction?.order_id }}
+                                    Transaction #{{ selectedTransaction?.id }}
                                 </h2>
-                                <p class="text-gray-700 dark:text-gray-300 text-lg">
+                                <h1 class="text-base font-medium text-gray-900 dark:text-white">
                                     {{ selectedTransaction?.customer }}
-                                </p>
+                                </h1>
                             </div>
-
-                            <!-- Order Details Table -->
-                            <div class="mb-6">
-                                <h3 class="font-bold mb-3 text-gray-800 dark:text-gray-200 text-xl">Order Details</h3>
-                                <div
-                                    class="grid grid-cols-4 text-left font-mono text-base px-4 py-3 bg-gray-100 dark:bg-gray-800 rounded-lg gap-y-2">
-                                    <div class="font-semibold">QTY</div>
-                                    <div class="font-semibold">PRODUCT NAME</div>
-                                    <div class="font-semibold">PRICE</div>
-                                    <div class="font-semibold">TOTAL</div>
-
-                                    <div>{{ selectedTransaction?.quantity }}</div>
-                                    <div>{{ selectedTransaction?.product_id }}</div>
-                                     <div>${{ selectedTransaction?.price }}</div>
-                                    <div>${{ selectedTransaction?.total_item_price }}</div>
-                                   
+                            <div class="space-y-6">
+                                <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">Order Details
+                                </h2>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block mb-1 font-medium">Product Name</label>
+                                        <input type="text" disabled
+                                            class="w-full px-3 py-2 rounded bg-gray-100 border border-gray-300 text-gray-700 dark:text-gray-300"
+                                            :value="selectedTransaction?.product_name" />
+                                    </div>
+                                    <div>
+                                        <label class="block mb-1 font-medium">Quantity</label>
+                                        <input type="text" disabled
+                                            class="w-full px-3 py-2 rounded bg-gray-100 border border-gray-300 text-gray-700 dark:text-gray-300"
+                                            :value="selectedTransaction?.quantity" />
+                                    </div>
+                                    <div>
+                                        <label class="block mb-1 font-medium">Price</label>
+                                        <input type="text" disabled
+                                            class="w-full px-3 py-2 rounded bg-gray-100 border border-gray-300 text-gray-700 dark:text-gray-300"
+                                            :value="selectedTransaction?.price" />
+                                    </div>
+                                    <div>
+                                        <label class="block mb-1 font-medium">Total</label>
+                                        <input type="text" disabled
+                                            class="w-full px-3 py-2 rounded bg-gray-100 border border-gray-300 text-gray-700 dark:text-gray-300"
+                                            :value="selectedTransaction ? ('$' + selectedTransaction.total) : ''" />
+                                    </div>
+                                    <div>
+                                        <label class="block mb-1 font-medium">Due Date</label>
+                                        <input type="text" disabled
+                                            class="w-full px-3 py-2 rounded bg-gray-100 border border-gray-300 text-gray-700 dark:text-gray-300"
+                                            :value="selectedTransaction?.due_date" />
+                                    </div>
+                                    <div>
+                                        <label class="block mb-1 font-medium">Status</label>
+                                        <input type="text" disabled
+                                            class="w-full px-3 py-2 rounded bg-gray-100 border border-gray-300 text-gray-700 dark:text-gray-300"
+                                            :value="selectedTransaction?.status" />
+                                    </div>
+                                </div>
+                                <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">Customer Details
+                                </h2>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block mb-1 font-medium">Customer Name</label>
+                                        <input type="text" disabled
+                                            class="w-full px-3 py-2 rounded bg-gray-100 border border-gray-300 text-gray-700 dark:text-gray-300"
+                                            :value="selectedTransaction?.customer" />
+                                    </div>
+                                    <div>
+                                        <label class="block mb-1 font-medium">Email</label>
+                                        <input type="text" disabled
+                                            class="w-full px-3 py-2 rounded bg-gray-100 border border-gray-300 text-gray-700 dark:text-gray-300"
+                                            :value="selectedTransaction?.email" />
+                                    </div>
                                 </div>
                             </div>
-
-                            <!-- Customer Info -->
-                            <div class="mb-6">
-                                <h3 class="font-bold mb-3 text-gray-800 dark:text-gray-200 text-xl">Customer Details
-                                </h3>
-                                <div class="flex justify-between py-1">
-                                    <span class="font-medium">Name:</span>
-                                    <span>{{ selectedTransaction?.customer }}</span>
-                                </div>
-                                <div class="flex justify-between py-1">
-                                    <span class="font-medium">Email:</span>
-                                    <span>{{ selectedTransaction?.email }}</span>
-                                </div>
-                            </div>
-
-                            <!-- Footer -->
-                            <div class="mt-6 text-center">
+                            <div class="flex justify-end space-x-2 mt-6">
                                 <button type="button" @click="isTransactionVisible = false; selectedTransaction = null"
-                                    class="px-6 py-3 bg-red-600 text-white rounded-lg text-lg hover:bg-red-700">
+                                    class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
                                     Close
                                 </button>
                             </div>
@@ -560,27 +601,27 @@ function toggleSelectAll(event) {
                     </div>
                 </div>
             </div>
-        </div>
-        <footer
-            class="absolute bottom-0 left-0 w-full border-t border-gray-200 dark:border-gray-700 py-4 flex flex-col md:flex-row items-center justify-between px-4 text-sm text-gray-500 dark:text-gray-400">
-            <div class="flex items-center space-x-4">
-                <span>© 2025 FreshBytes. All rights reserved.</span>
-                <a href="#" class="hover:underline">Privacy Policy</a>
-                <a href="#" class="hover:underline">API</a>
-                <a href="#" class="hover:underline">Contact</a>
             </div>
+            <footer
+                class="absolute bottom-0 left-0 w-full border-t border-gray-200 dark:border-gray-700 py-4 flex flex-col md:flex-row items-center justify-between px-4 text-sm text-gray-500 dark:text-gray-400">
+                <div class="flex items-center space-x-4">
+                    <span>© 2025 FreshBytes. All rights reserved.</span>
+                    <a href="#" class="hover:underline">Privacy Policy</a>
+                    <a href="#" class="hover:underline">API</a>
+                    <a href="#" class="hover:underline">Contact</a>
+                </div>
 
-            <div class="flex items-center space-x-2 mt-2 md:mt-0">
-                <select class="text-sm bg-transparent focus:outline-none dark:text-white">
-                    <option selected>English (US)</option>
-                </select>
-                <button class="text-gray-500 dark:text-gray-300">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
-                        stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                </button>
-            </div>
-        </footer>
-    </div>
+                <div class="flex items-center space-x-2 mt-2 md:mt-0">
+                    <select class="text-sm bg-transparent focus:outline-none dark:text-white">
+                        <option selected>English (US)</option>
+                    </select>
+                    <button class="text-gray-500 dark:text-gray-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                    </button>
+                </div>
+            </footer>
+        </div>
 </template>
