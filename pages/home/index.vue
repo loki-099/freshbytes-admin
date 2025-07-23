@@ -7,6 +7,16 @@ definePageMeta({
 const config = useRuntimeConfig();
 const api = config.public.API_LINK;
 
+// Function to get auth headers
+const getAuthHeaders = () => {
+  const accessTokenCookie = useCookie('auth-access-token')
+  const token = accessTokenCookie.value
+  
+  return token ? {
+    Authorization: `Bearer ${token}`
+  } : {}
+}
+
 // Date range options for transactions
 const dateRangeOptions = [
   { value: 'today', label: 'Today' },
@@ -163,7 +173,9 @@ const fetchDashboardData = async () => {
   loading.value = true
   try {
     const params = new URLSearchParams(dateRangeParams.value)
-    const response = await $fetch(`${api}/api/admin/dashboard/?${params.toString()}`)
+    const response = await $fetch(`${api}/api/admin/dashboard/?${params.toString()}`, {
+      headers: getAuthHeaders()
+    })
     
     if (response) {
       dashboardData.value = {
@@ -180,6 +192,15 @@ const fetchDashboardData = async () => {
     }
   } catch (error) {
     console.error('Error fetching dashboard data:', error)
+    
+    // Handle 401 errors specifically
+    if (error.response?.status === 401 || error.status === 401 || error.statusCode === 401) {
+      console.log('Dashboard auth error, logging out...')
+      const { logout } = useAuth()
+      await logout(true) // Skip API call since token is invalid
+      return
+    }
+    
     // Generate fallback activity even if API fails
     recentActivities.value = generateFallbackActivity()
   } finally {

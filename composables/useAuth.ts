@@ -137,13 +137,15 @@ export const useAuth = () => {
     }
   }
 
-  const logout = async () => {
+  const logout = async (skipApiCall = false) => {
     try {
-      if (refreshToken.value) {
+      // Only attempt logout API call if we have valid tokens and not skipping
+      if (!skipApiCall && refreshToken.value && accessToken.value) {
         await $fetch(`${apiBase}/api/auth/logout/`, {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${accessToken.value}`
+            Authorization: `Bearer ${accessToken.value}`,
+            'Content-Type': 'application/json'
           },
           body: {
             refresh: refreshToken.value
@@ -151,7 +153,8 @@ export const useAuth = () => {
         })
       }
     } catch (error) {
-      console.error('Logout error:', error)
+      console.warn('Logout API error (continuing with local logout):', error)
+      // Don't throw - we want to clear local state regardless of API success
     } finally {
       // Clear state regardless of API call success
       accessToken.value = null
@@ -210,9 +213,10 @@ export const useAuth = () => {
           user_phone
         },
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Registration error:', error)
-      throw new Error(error.data?.detail || error.data?.message || 'Registration failed')
+      const errorObj = error as { data?: { detail?: string; message?: string } }
+      throw new Error(errorObj.data?.detail || errorObj.data?.message || 'Registration failed')
     } finally {
       isLoading.value = false
     }

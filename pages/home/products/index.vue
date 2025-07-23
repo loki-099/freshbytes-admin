@@ -38,7 +38,8 @@ const { data: products, pending: pendingProducts, error, refresh: refreshProduct
         onResponseError({ response }) {
             console.error('Products API Error:', response.status, response._data);
             if (response.status === 401) {
-                navigateTo('/login');
+                const { logout } = useAuth();
+                logout(true); // Skip API call since token is invalid
             }
         }
     }

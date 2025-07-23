@@ -15,6 +15,9 @@
   const config = useRuntimeConfig();
   const api = config.public.API_LINK;
 
+  // Get current user info for self-suspension protection
+  const { user: currentUser } = useAuth()
+
   // Filter states
   const searchTerm = ref('')
   const selectedRole = ref('')
@@ -352,11 +355,32 @@ watch(data, (val) => {
       // Toggle between Active and Suspended (not deleted)
       const newStatus = !user.is_active;
       
+      // 🔒 Prevent self-suspension: Check if user is trying to deactivate their own account
+      const currentUserEmail = currentUser.value?.email || null;
+      const targetUserEmail = user.user_email;
+      
+      if (currentUserEmail && targetUserEmail && 
+          currentUserEmail.toLowerCase() === targetUserEmail.toLowerCase() && 
+          !newStatus) { // newStatus false means suspending the account
+        if (!confirm('⚠️ WARNING: You are about to suspend your own account! This will immediately log you out and you will lose access to the admin panel. Are you sure you want to continue?')) {
+          return;
+        }
+      }
+      
+      // Check if we have a valid token
+      const authHeaders = getAuthHeaders();
+      if (!authHeaders.Authorization) {
+        console.log('No auth token found, redirecting to login');
+        const { logout } = useAuth();
+        await logout();
+        return;
+      }
+      
       // Call the API to update the status
       await $fetch(`${api}/api/users/${user.user_id}/`, {
         method: 'PATCH',
         headers: {
-          ...getAuthHeaders(),
+          ...authHeaders,
           'Content-Type': 'application/json'
         },
         body: {
@@ -371,6 +395,24 @@ watch(data, (val) => {
       console.log(`User ${user.user_name} status updated to ${newStatus ? 'Active' : 'Suspended'}`);
     } catch (error) {
       console.error('Failed to update user status:', error);
+      
+      // ✅ Handle 401 specifically and force logout
+      if (error.response?.status === 401 || error.status === 401 || error.statusCode === 401) {
+        console.log('Token expired (401), logging out...');
+        const { logout } = useAuth();
+        await logout(true); // Skip API call since token is invalid
+        return;
+      }
+      
+      // ✅ Handle other fetch errors that might indicate auth issues
+      if (error.message && error.message.includes('401')) {
+        console.log('Auth error detected in message, logging out...');
+        const { logout } = useAuth();
+        await logout(true); // Skip API call since token is invalid
+        return;
+      }
+      
+      // For other errors, show user message
       alert('Failed to update user status. Please try again.');
     }
   }

@@ -11,6 +11,9 @@ const emit = defineEmits(['close', 'updated']);
 const config = useRuntimeConfig();
 const api = config.public.API_LINK;
 
+// Get current user info for self-suspension protection
+const { user: currentUser } = useAuth();
+
 // Function to get auth headers
 const getAuthHeaders = () => {
   const accessTokenCookie = useCookie('auth-access-token')
@@ -138,6 +141,18 @@ async function updateUser() {
   if (!editedUser.value.role) {
     alert('Please select a user role.');
     return;
+  }
+
+  // 🔒 Prevent self-suspension: Check if user is trying to deactivate their own account
+  const currentUserEmail = currentUser.value?.email || null;
+  const targetUserEmail = editedUser.value.user_email;
+  
+  if (currentUserEmail && targetUserEmail && 
+      currentUserEmail.toLowerCase() === targetUserEmail.toLowerCase() && 
+      !editedUser.value.is_active) {
+    if (!confirm('⚠️ WARNING: You are about to suspend your own account! This will immediately log you out and you will lose access to the admin panel. Are you sure you want to continue?')) {
+      return;
+    }
   }
 
   try {
