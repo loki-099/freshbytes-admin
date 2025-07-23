@@ -134,6 +134,12 @@ async function updateUser() {
     return;
   }
 
+  // Validate role selection
+  if (!editedUser.value.role) {
+    alert('Please select a user role.');
+    return;
+  }
+
   try {
     // Prepare the update data according to your API structure
     const updateData = {
@@ -147,18 +153,68 @@ async function updateUser() {
       is_active: editedUser.value.is_active
     };
 
+    // Fix role mapping logic
     if (editedUser.value.role === 'Administrator') {
-      // For administrators, use a default role (like customer) and rely on is_superuser flag
-      updateData.role = 'customer';
+      // For administrators, set the proper role and is_superuser flag
+      updateData.role = 'admin'; // or whatever your backend expects for admin role
+      updateData.is_superuser = true;
     } else {
-      // For non-administrators, use the selected role
+      // For non-administrators, use the selected role and ensure is_superuser is false
       updateData.role = editedUser.value.role;
+      updateData.is_superuser = false;
     }
 
     // Only include password if it's being changed
     if (editedUser.value.password) {
       updateData.password = editedUser.value.password;
     }
+
+    // ✅ Enhanced debugging: Log original user data vs update data
+    console.log('=== USER UPDATE DEBUG ===');
+    console.log('User ID:', editedUser.value.user_id);
+    console.log('Original user data:', props.userToUpdate);
+    console.log('Form data (editedUser):', editedUser.value);
+    console.log('Data being sent to API:', updateData);
+    
+    // ✅ Data validation checks
+    const validationIssues = [];
+    
+    // Check for empty or invalid fields
+    if (!updateData.user_name || updateData.user_name.trim() === '') {
+      validationIssues.push('user_name is empty');
+    }
+    if (!updateData.user_email || !updateData.user_email.includes('@')) {
+      validationIssues.push('user_email is invalid');
+    }
+    if (updateData.user_phone && updateData.user_phone.length > 0 && updateData.user_phone.length < 10) {
+      validationIssues.push('user_phone is too short');
+    }
+    if (!updateData.role) {
+      validationIssues.push('role is empty');
+    }
+    
+    // ✅ Check for data type issues
+    if (typeof updateData.is_superuser !== 'boolean') {
+      validationIssues.push(`is_superuser is not boolean: ${typeof updateData.is_superuser}`);
+    }
+    if (typeof updateData.is_active !== 'boolean') {
+      validationIssues.push(`is_active is not boolean: ${typeof updateData.is_active}`);
+    }
+    
+    if (validationIssues.length > 0) {
+      console.warn('⚠️  Potential validation issues:', validationIssues);
+    }
+    
+    // ✅ Clean up data - remove null, undefined, or empty string values
+    const cleanedData = {};
+    for (const [key, value] of Object.entries(updateData)) {
+      if (value !== null && value !== undefined && value !== '') {
+        cleanedData[key] = value;
+      }
+    }
+    
+    console.log('Cleaned data being sent:', cleanedData);
+    console.log('=========================');
 
     // If there's a new avatar file, handle file upload
     if (editedUser.value.avatarFile) {
@@ -181,14 +237,14 @@ async function updateUser() {
       }
     }
 
-    // Update user data
+    // Update user data - Use cleaned data instead of updateData
     await $fetch(`${api}/api/users/${editedUser.value.user_id}/`, {
       method: 'PATCH',
       headers: {
         ...getAuthHeaders(),
         'Content-Type': 'application/json'
       },
-      body: updateData
+      body: cleanedData  // ✅ Use cleanedData instead of updateData
     });
 
     emit('updated');
@@ -197,8 +253,50 @@ async function updateUser() {
     closeModal();
     alert('User updated successfully!');
   } catch (error) {
-    console.error('Failed to update user:', error);
-    alert('Failed to update user. Please try again.');
+    console.error('❌ FAILED to update user:', editedUser.value.user_id);
+    console.error('Full error object:', error);
+    
+    // ✅ Enhanced error details for debugging
+    if (error.response) {
+      console.error('Response status:', error.response.status);
+      console.error('Response headers:', error.response.headers);
+      console.error('Response data:', error.response.data);
+      
+      // ✅ Try to extract more specific error information
+      let errorMessage = 'Server validation error';
+      
+      if (error.response.data) {
+        // Check for different error message formats
+        if (typeof error.response.data === 'string') {
+          errorMessage = error.response.data;
+        } else if (error.response.data.detail) {
+          errorMessage = error.response.data.detail;
+        } else if (error.response.data.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.response.data.error) {
+          errorMessage = error.response.data.error;
+        } else if (error.response.data.errors) {
+          // Handle field-specific validation errors
+          const fieldErrors = [];
+          for (const [field, messages] of Object.entries(error.response.data.errors)) {
+            fieldErrors.push(`${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`);
+          }
+          errorMessage = fieldErrors.join('; ');
+        } else {
+          errorMessage = `Validation failed (Status: ${error.response.status})`;
+        }
+      }
+      
+      alert(`❌ Failed to update user: ${errorMessage}\n\nUser: ${editedUser.value.user_name} (${editedUser.value.user_email})\nCheck browser console for detailed logs.`);
+      
+    } else if (error.data) {
+      console.error('Error data:', error.data);
+      const errorMessage = error.data?.message || error.data?.detail || 'Update failed';
+      alert(`Failed to update user: ${errorMessage}`);
+    } else {
+      console.error('Network or other error:', error.message);
+      alert('Failed to update user. Please check your connection and try again.');
+    }
   }
 }
 
@@ -392,10 +490,9 @@ function removeAvatar() {
             <label class="block mb-2 font-medium text-gray-700">User Role</label>
             <select v-model="editedUser.role" 
                     class="w-full px-3 py-2 rounded bg-gray-100 border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent">
-              <option value="">Role</option>
-              <option value="Administrator">Administrator</option>
               <option value="customer">Customer</option>
               <option value="seller">Seller</option>
+              <option value="Administrator">Administrator</option>
             </select>
             <p class="text-sm text-gray-500 mt-1">
               Basic role assignment. Additional permissions can be set below.
