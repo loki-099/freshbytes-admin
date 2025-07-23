@@ -339,6 +339,17 @@ onMounted(() => {
                                     <span class="ms-3">Single Transactions</span>
                                 </NuxtLink>
                             </li>
+                            <li>
+                                <NuxtLink to="/home/transactions/payments"
+                                    class="flex items-center w-full p-2 text-gray-900 transition duration-75 rounded-lg pl-11 group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700">
+                                    <svg class="flex-shrink-0 w-4 h-4 text-gray-500 transition duration-75 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white"
+                                        fill="currentColor" viewBox="0 0 20 20">
+                                        <path
+                                            d="M4 3a1 1 0 011-1h10a1 1 0 011 1v2H4V3zm0 4h12v2H4V7zm0 4h12v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6z" />
+                                    </svg>
+                                    <span class="ms-3">Payments</span>
+                                </NuxtLink>
+                            </li>
                         </ul>
                     </li>
 
