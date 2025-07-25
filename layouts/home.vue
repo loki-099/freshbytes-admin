@@ -1,15 +1,51 @@
 <script setup>
-import { onMounted } from 'vue'
-import { useFlowbite } from '~/composables/useFlowbite';
+import { onMounted, computed, watch } from 'vue'
+import { useFlowbite } from '~/composables/useFlowbite'
 
-const { logout } = useAuth();
+const { user, logout } = useAuth()
 
 onMounted(() => {
     useFlowbite(() => {
-        initFlowbite();
+        initFlowbite()
     })
 })
+
+const config = useRuntimeConfig()
+const api = config.public.API_LINK
+
+// Auth token
+const accessToken = useCookie('auth-access-token')
+
+const getAuthHeaders = () => {
+    return accessToken.value
+        ? { Authorization: `Bearer ${accessToken.value}` }
+        : {}
+}
+
+const {
+  data: currentUser,
+  pending: pendingUser,
+  refresh: refreshCurrentUser
+} = await useFetch(`${api}/api/users/`, {
+  server: false,
+  headers: computed(() => getAuthHeaders()),
+  onResponseError({ response }) {
+    console.error('User API Error:', response.status, response._data)
+    if (response.status === 401) {
+      navigateTo('/login')
+    }
+  }
+})
+const currentUserData = computed(() =>
+  Array.isArray(currentUser.value) ? currentUser.value[0] : null
+)
+
+const isSeller = computed(() =>
+  currentUserData.value?.role === 'seller'
+)
 </script>
+
+
 
 <template>
     <div class="min-h-screen flex flex-col">
@@ -108,54 +144,57 @@ onMounted(() => {
                     </li>
 
                     <!-- Users Dropdown -->
-                    <li>
-                        <button type="button"
-                            class="flex items-center w-full p-2 text-base text-gray-900 transition duration-75 rounded-lg group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
-                            aria-controls="dropdown-users" data-collapse-toggle="dropdown-users">
-                            <svg class="flex-shrink-0 w-5 h-5 text-gray-500 transition duration-75 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white"
-                                aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor"
-                                viewBox="0 0 20 18">
-                                <path
-                                    d="M14 2a3.963 3.963 0 0 0-1.4.267 6.439 6.439 0 0 1-1.331 6.638A4 4 0 1 0 14 2Zm1 9h-1.264A6.957 6.957 0 0 1 15 15v2a2.97 2.97 0 0 1-.184 1H19a1 1 0 0 0 1-1v-1a5.006 5.006 0 0 0-5-5ZM6.5 9a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9ZM8 10H5a5.006 5.006 0 0 0-5 5v2a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-2a5.006 5.006 0 0 0-5-5Z" />
-                            </svg>
-                            <span class="flex-1 ms-3 text-left rtl:text-right whitespace-nowrap">Users</span>
-                            <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none"
-                                viewBox="0 0 10 6">
-                                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
-                                    stroke-width="2" d="m1 1 4 4 4-4" />
-                            </svg>
-                        </button>
+                    <!-- Only show this for non-sellers -->
+                    <li v-if="!isSeller">
 
-                        <!-- Users Dropdown Menu -->
-                        <ul id="dropdown-users" class="hidden py-2 space-y-2">
-                            <li>
-                                <NuxtLink to="/home/users"
-                                    class="flex items-center w-full p-2 text-gray-900 transition duration-75 rounded-lg pl-11 group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700">
-                                    <svg class="flex-shrink-0 w-4 h-4 text-gray-500 transition duration-75 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white"
-                                        fill="currentColor" viewBox="0 0 20 20">
-                                        <path
-                                            d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z" />
-                                    </svg>
-                                    <span class="ms-3">Current Users</span>
-                                </NuxtLink>
-                            </li>
-                            <li>
-                                <NuxtLink to="/home/users/deleted"
-                                    class="flex items-center w-full p-2 text-gray-900 transition duration-75 rounded-lg pl-11 group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700">
-                                    <svg class="flex-shrink-0 w-4 h-4 text-gray-500 transition duration-75 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white"
-                                        fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd"
-                                            d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
-                                            clip-rule="evenodd" />
-                                    </svg>
-                                    <span class="ms-3">Deleted Users</span>
-                                </NuxtLink>
-                            </li>
-                        </ul>
+                    <button type="button"
+                        class="flex items-center w-full p-2 text-base text-gray-900 transition duration-75 rounded-lg group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
+                        aria-controls="dropdown-users" data-collapse-toggle="dropdown-users">
+                        <svg class="flex-shrink-0 w-5 h-5 text-gray-500 transition duration-75 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white"
+                            aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor"
+                            viewBox="0 0 20 18">
+                            <path
+                                d="M14 2a3.963 3.963 0 0 0-1.4.267 6.439 6.439 0 0 1-1.331 6.638A4 4 0 1 0 14 2Zm1 9h-1.264A6.957 6.957 0 0 1 15 15v2a2.97 2.97 0 0 1-.184 1H19a1 1 0 0 0 1-1v-1a5.006 5.006 0 0 0-5-5ZM6.5 9a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9ZM8 10H5a5.006 5.006 0 0 0-5 5v2a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-2a5.006 5.006 0 0 0-5-5Z" />
+                        </svg>
+                        <span class="flex-1 ms-3 text-left rtl:text-right whitespace-nowrap">Users</span>
+                        <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none"
+                            viewBox="0 0 10 6">
+                            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="m1 1 4 4 4-4" />
+                        </svg>
+                    </button>
+
+                    <!-- Users Dropdown Menu -->
+                    <ul id="dropdown-users" class="hidden py-2 space-y-2">
+                        <li>
+                            <NuxtLink to="/home/users"
+                                class="flex items-center w-full p-2 text-gray-900 transition duration-75 rounded-lg pl-11 group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700">
+                                <svg class="flex-shrink-0 w-4 h-4 text-gray-500 transition duration-75 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white"
+                                    fill="currentColor" viewBox="0 0 20 20">
+                                    <path
+                                        d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z" />
+                                </svg>
+                                <span class="ms-3">Current Users</span>
+                            </NuxtLink>
+                        </li>
+                        <li>
+                            <NuxtLink to="/home/users/deleted"
+                                class="flex items-center w-full p-2 text-gray-900 transition duration-75 rounded-lg pl-11 group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700">
+                                <svg class="flex-shrink-0 w-4 h-4 text-gray-500 transition duration-75 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white"
+                                    fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd"
+                                        d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                                        clip-rule="evenodd" />
+                                </svg>
+                                <span class="ms-3">Deleted Users</span>
+                            </NuxtLink>
+                        </li>
+                    </ul>
                     </li>
 
                     <!-- Sellers Dropdown -->
-                    <li>
+                    <li v-if="!isSeller">
+
                         <button type="button"
                             class="flex items-center w-full p-2 text-base text-gray-900 transition duration-75 rounded-lg group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
                             aria-controls="dropdown-sellers" data-collapse-toggle="dropdown-sellers">
@@ -339,22 +378,12 @@ onMounted(() => {
                                     <span class="ms-3">Single Transactions</span>
                                 </NuxtLink>
                             </li>
-                            <li>
-                                <NuxtLink to="/home/transactions/payments"
-                                    class="flex items-center w-full p-2 text-gray-900 transition duration-75 rounded-lg pl-11 group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700">
-                                    <svg class="flex-shrink-0 w-4 h-4 text-gray-500 transition duration-75 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white"
-                                        fill="currentColor" viewBox="0 0 20 20">
-                                        <path
-                                            d="M4 3a1 1 0 011-1h10a1 1 0 011 1v2H4V3zm0 4h12v2H4V7zm0 4h12v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6z" />
-                                    </svg>
-                                    <span class="ms-3">Payments</span>
-                                </NuxtLink>
-                            </li>
+
                         </ul>
                     </li>
 
                     <!-- Promos -->
-                    <li>
+                    <li v-if="currentUser?.role !== 'seller'">
                         <NuxtLink to="/home/promos"
                             class="flex items-center p-2 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group">
                             <svg class="shrink-0 w-5 h-5 text-gray-500 transition duration-75 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white"

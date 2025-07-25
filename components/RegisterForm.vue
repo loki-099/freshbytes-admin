@@ -4,8 +4,8 @@
             <label for="first-name" class="block mb-2 text-lg font-medium text-gray-900 dark:text-white">Role</label>
             <select v-model="form.role"
                 class="w-full px-3 py-2 rounded bg-gray-100 border border-gray-300 focus:outline-none">
-                <option value="">Customer</option>
-                <option value="">Seller</option>
+                <option value="customer">Customer</option>
+                <option value="seller">Seller</option>
             </select>
         </div>
         <div>
