@@ -18,15 +18,42 @@ const getAuthHeaders = () => {
 }
 
 const { data: transactions, pending: pendingTransactions, refresh: refreshTransactions } = await useFetch(
-  `${api}/api/order-items/`,
-  {
-    server: false,
-    headers: computed(() => getAuthHeaders()),
-    onResponseError({ response }) {
-      console.error('Categories API Error:', response.status, response._data);
+    `${api}/api/order-items/`,
+    {
+        server: false,
+        headers: computed(() => getAuthHeaders()),
+        onResponseError({ response }) {
+            console.error('Categories API Error:', response.status, response._data);
+        }
     }
-  }
 );
+// This is pseudo-code depending on your actual setup
+async function showOrderDetails(orderId) {
+    try {
+        const { data, error } = await useFetch(`${api}/api/order-items/?order_id=${orderId}`, {
+            server: false,
+            headers: computed(() => getAuthHeaders())
+        });
+
+        if (error.value) {
+            console.error("Fetch error", error.value);
+            return;
+        }
+
+        if (data.value && data.value.length > 0) {
+            selectedTransaction.value = {
+                ...data.value[0], // base info
+                items: data.value
+            };
+            isTransactionVisible.value = true;
+        } else {
+            console.warn("No items found for order:", orderId);
+        }
+    } catch (err) {
+        console.error("Error fetching order details:", err);
+    }
+}
+
 // State
 const searchQuery = ref('')
 const statusFilter = ref('')
@@ -78,9 +105,11 @@ const filteredTransactions = computed(() => {
         const q = searchQuery.value.toLowerCase();
         list = list.filter(
             t =>
-                t.id.includes(q) ||
-                t.customer.toLowerCase().includes(q) ||
-                t.email.toLowerCase().includes(q)
+                t.order_id.includes(q) ||
+                t.first_name.toLowerCase().includes(q) ||
+                t.last_name.toLowerCase().includes(q) ||
+                t.business_name.toLowerCase().includes(q) ||
+                t.product_name.toLowerCase().includes(q)
         );
     }
 
@@ -118,6 +147,24 @@ const filteredTransactions = computed(() => {
 
     return list;
 });
+const groupedTransactions = computed(() => {
+    const groups = {};
+    filteredTransactions.value.forEach(t => {
+        if (!groups[t.order_id]) {
+            groups[t.order_id] = {
+                order_id: t.order_id,
+                customer: `${t.last_name}, ${t.first_name}`,
+                items: [],
+                order_status: t.order_status,
+                created_at: t.created_at,
+                total_price: 0,
+            };
+        }
+        groups[t.order_id].items.push(t);
+        groups[t.order_id].total_price += Number(t.total_item_price);
+    });
+    return Object.values(groups);
+});
 function updateTransaction() {
     isUpdateVisible.value = false;
 }
@@ -130,6 +177,7 @@ function toggleSelectAll(event) {
     }
 }
 </script>
+
 <template>
     <div class="bg-white w-full h-full absolute top-0 left-0 z-10 flex items-center justify-center" v-if="pending">
         <div role="status">
@@ -229,11 +277,11 @@ function toggleSelectAll(event) {
             </button>
         </div>
         <div class="flex justify-end mb-4">
-            <button
+            <!-- <button
                 class="px-4 py-2 rounded transition font-medium mb-4 bg-red-600 text-white hover:bg-red-700 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed"
                 :disabled="selectedTransactionIds.length === 0" @click="deleteSelectedTransactions">
-                Delete {{ selectedTransactionIds.length }} item<span v-if="selectedTransactionIds.length !== 1">s</span>
-            </button>
+                Delete {{ selectedTransactionIds.length }} item<span v-if="selectedTransactionIds.length !== 1">s</span> -->
+            <!-- </button> -->
         </div>
         <div class="relative overflow-visible bg-white dark:bg-gray-800 rounded-lg shadow">
             <div class="overflow-x-auto">
@@ -250,85 +298,57 @@ function toggleSelectAll(event) {
                             <th class="p-4 text-xs font-medium text-left text-gray-500 uppercase dark:text-gray-400">
                                 Order
                                 ID</th>
-                            <th class="p-4 text-xs font-medium text-center text-gray-500 uppercase dark:text-gray-400">
+                            <!-- <th class="p-4 text-xs font-medium text-center text-gray-500 uppercase dark:text-gray-400">
                                 Customer</th>
                             <th class="p-4 text-xs font-medium text-center text-gray-500 uppercase dark:text-gray-400">
-                                Product Id</th>
+                                Product Name</th>
+                            <th class="p-4 text-xs font-medium text-center text-gray-500 uppercase dark:text-gray-400">
+                                Seller</th>
                             <th class="p-4 text-xs font-medium text-center text-gray-500 uppercase dark:text-gray-400">
                                 Quantity</th>
                             <th class="p-4 text-xs font-medium text-center text-gray-500 uppercase dark:text-gray-400">
-                                Email
-                            </th>
-                            <th class="p-4 text-xs font-medium text-center text-gray-500 uppercase dark:text-gray-400">
                                 Total
-                            </th>
+                            </th> -->
+                            <th class="p-4 text-xs font-medium text-left text-gray-500 uppercase dark:text-gray-400">
+                                Customer Name
+                                </th>
+                            <th class="p-4 text-xs font-medium text-left text-gray-500 uppercase dark:text-gray-400">
+                                Total price
+                                </th>
                             <th class="p-4 text-xs font-medium text-center text-gray-500 uppercase dark:text-gray-400">
-                                Due
-                                Date</th>
+                                Created At</th>
                             <th class="p-4 text-xs font-medium text-status text-gray-500 uppercase dark:text-gray-400">
-                                Status
-                            </th>
-                            <th class="p-4 text-xs font-medium text-center text-gray-500 uppercase dark:text-gray-400">
-                                Action</th>
+                                Status</th>
+                            
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="t in filteredTransactions" :key="t.id"
-                            class="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                            @click="selectedTransaction = t; isTransactionVisible = true">
-                            <td class="p-4">
-                                <input :id="`checkbox-${t.id}`" type="checkbox" :value="t.id"
-                                    v-model="selectedTransactionIds" @click.stop
-                                    class="w-4 h-4 border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-primary-300 dark:focus:ring-primary-600 dark:ring-offset-gray-800 dark:bg-gray-700 dark:border-gray-600" />
-                            </td>
-                            <td class="p-4 text-sm text-gray-900 dark:text-white font-semibold">#{{ t.id }}</td>
-                            <td class="p-4 text-sm text-gray-900 dark:text-white">{{ t.customer }}</td>
-                            <td class="p-4 text-sm text-gray-900 dark:text-white">{{ t.product_id }} , {{ t.product_id2 }}</td>
-                            <td class="p-4 text-sm text-gray-900 dark:text-white">{{ t.quantity }} , {{ t.quantity2 }}</td>
-                            <td class="p-4 text-sm text-gray-900 dark:text-white">{{ t.email }}</td>
-                            <td class="p-4 text-sm text-gray-900 dark:text-white">${{ t.total_item_price }}</td>
-                            <td class="p-4 text-sm text-gray-900 dark:text-white">{{ t.due_date }}</td>
-                            <td class="p-4 text-center">
-                                <span :class="{
-                                    'bg-green-100 text-green-800': t.status === 'Completed',
-                                    'bg-yellow-100 text-yellow-800': t.status === 'Pending',
-                                    'bg-red-100 text-red-800': t.status === 'Failed',
-                                    'bg-blue-100 text-blue-800': t.status === 'Refunded'
-                                }" class="px-2 py-1 rounded text-xs font-semibold">
-                                    {{ t.status }}
-                                </span>
-                            </td>
-                            <td class="p-4 text-center relative">
-                                <button @click.stop="toggleDropdown(t.id)"
-                                    class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 focus:outline-none">
-                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                        <path
-                                            d="M6 10a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0z" />
-                                    </svg>
-                                </button>
-
-                                <div v-if="activeDropdown === t.id"
-                                    class="absolute right-0 z-10 mt-2 w-32 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md shadow-lg">
-                                    <ul class="py-1 text-sm text-gray-700 dark:text-gray-100">
-                                        <li>
-                                            <button
-                                                @click.stop="selectedTransaction = t; isUpdateVisible = true; closeDropdown()"
-                                                class="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600">
-                                                Update
-                                            </button>
-                                        </li>
-                                        <li>
-                                            <button
-                                                @click.stop="isDeleteVisible = true; transactionToDelete = t; closeDropdown()"
-                                                class="w-full text-left px-4 py-2 text-red-600 hover:bg-red-100 dark:text-red-400 dark:hover:bg-gray-600">
-                                                Delete
-                                            </button>
-                                        </li>
-                                    </ul>
-                                </div>
-                            </td>
-
-                        </tr>
+                        <template v-for="order in groupedTransactions" :key="order.order_id">
+                            <tr class="bg-gray-200 dark:bg-gray-700 font-semibold cursor-pointer"
+                                @click="showOrderDetails(order.order_id)">
+                                <td class="p-4" colspan="1">
+                                    <input :id="`checkbox-${order.order_id}`" type="checkbox" :value="order.order_id"
+                                        v-model="selectedTransactionIds" @click.stop
+                                        class="w-4 h-4 border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-primary-300 dark:focus:ring-primary-600 dark:ring-offset-gray-800 dark:bg-gray-700 dark:border-gray-600" />
+                                </td>
+                                <td class="p-4 text-sm text-gray-900 dark:text-white font-semibold">#{{ order.order_id
+                                    }}</td>
+                               <td class="p-4 text-sm text-gray-900 dark:text-white font-semibold">{{ order.customer }}</td>
+                                <td class="p-4 text-sm text-gray-900 dark:text-white">${{ order.total_price }}</td>
+                                <td class="p-4 text-sm text-gray-900 dark:text-white">{{ order.created_at }}</td>
+                                <td class="p-4 text-center">
+                                    <span :class="{
+                                        'bg-green-100 text-green-800': order.order_status === 'CONFIRMED',
+                                        'bg-yellow-100 text-yellow-800': order.order_status === 'PENDING',
+                                        'bg-red-100 text-red-800': order.order_status === 'SHIPPED',
+                                        'bg-blue-100 text-blue-800': order.order_status === 'CANCELLED'
+                                    }" class="px-2 py-1 rounded text-xs font-semibold">
+                                        {{ order.order_status }}
+                                    </span>
+                                </td>
+                            </tr>
+                          
+                        </template>
                     </tbody>
 
                     <div id="showTransaction" v-if="isTransactionVisible"
@@ -347,36 +367,67 @@ function toggleSelectAll(event) {
                             </div>
 
                             <!-- Order Details Table -->
-                            <div class="mb-6">
-                                <h3 class="font-bold mb-3 text-gray-800 dark:text-gray-200 text-xl">Order Details</h3>
-                                <div
-                                    class="grid grid-cols-4 text-left font-mono text-base px-4 py-3 bg-gray-100 dark:bg-gray-800 rounded-lg gap-y-2">
-                                    <div class="font-semibold">QTY</div>
-                                    <div class="font-semibold">PRODUCT NAME</div>
-                                    <div class="font-semibold">PRICE</div>
-                                    <div class="font-semibold">TOTAL</div>
+                            <!-- Order Details -->
+                            <div class="mb-8">
+                                <h3 class="text-xl font-bold mb-4 text-gray-800 dark:text-gray-200">Order Details</h3>
+                                <div class="overflow-x-auto rounded-lg">
+                                    <table
+                                        class="w-full table-auto text-left bg-gray-100 dark:bg-gray-800 text-base font-mono rounded-lg">
+                                        <thead>
+                                            <tr
+                                                class="text-gray-700 dark:text-gray-300 font-semibold border-b border-gray-300 dark:border-gray-700">
+                                                <th class="px-4 py-2">QTY</th>
+                                                <th class="px-4 py-2">PRODUCT NAME</th>
+                                                <th class="px-4 py-2">SHOP</th>
+                                                <th class="px-4 py-2">PRICE</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <!-- Main Transaction Row -->
 
-                                    <div>{{ selectedTransaction?.quantity }}</div>
-                                    <div>{{ selectedTransaction?.product_id }}</div>
-                                     <div>${{ selectedTransaction?.price }}</div>
-                                    <div>${{ selectedTransaction?.total_item_price }}</div>
-                                   
+                                            <tr v-for="item in selectedTransaction?.items" :key="item.id"
+                                                class="text-gray-900 dark:text-gray-100">
+                                                <td class="px-4 py-2">{{ item.quantity }}</td>
+                                                <td class="px-4 py-2">{{ item.product_name }}</td>
+                                                <td class="px-4 py-2">{{ item.business_name }}</td>
+                                                <td class="px-4 py-2">${{ item.product_price }}</td>
+                                            </tr>
+
+                                        </tbody>
+
+                                        <!-- Total Row Outside the Table -->
+                                        <tfoot>
+                                            <tr>
+                                                <td colspan="4"
+                                                    class="pt-4 pr-4 text-right text-lg font-semibold text-gray-800 dark:text-gray-200">
+                                                    Total: $
+                                                    {{
+                                                        selectedTransaction?.items?.reduce(
+                                                            (sum, item) => sum + (item.quantity * item.product_price),
+                                                    0
+                                                    ).toFixed(2)
+                                                    }}
+                                                </td>
+                                            </tr>
+                                        </tfoot>
+
+                                    </table>
                                 </div>
                             </div>
 
                             <!-- Customer Info -->
-                            <div class="mb-6">
-                                <h3 class="font-bold mb-3 text-gray-800 dark:text-gray-200 text-xl">Customer Details
+                            <div class="mb-8">
+                                <h3 class="text-xl font-bold mb-4 text-gray-800 dark:text-gray-200">Customer Details
                                 </h3>
-                                <div class="flex justify-between py-1">
-                                    <span class="font-medium">Name:</span>
-                                    <span>{{ selectedTransaction?.customer }}</span>
-                                </div>
-                                <div class="flex justify-between py-1">
-                                    <span class="font-medium">Email:</span>
-                                    <span>{{ selectedTransaction?.email }}</span>
+                                <div class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg">
+                                    <div class="flex justify-between text-base text-gray-700 dark:text-gray-300">
+                                        <span class="font-medium">Name:</span>
+                                        <span>{{ selectedTransaction?.last_name }}, {{ selectedTransaction?.first_name
+                                            }}</span>
+                                    </div>
                                 </div>
                             </div>
+
 
                             <!-- Footer -->
                             <div class="mt-6 text-center">
@@ -409,7 +460,7 @@ function toggleSelectAll(event) {
                         </div>
                     </div>
                 </div>
-                <div v-if="isUpdateVisible" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-800/30">
+                <!-- <div v-if="isUpdateVisible" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-800/30">
                     <div @click.stop class="bg-white dark:bg-gray-800 p-6 rounded shadow-lg max-w-xl w-full">
                         <h2 class="text-2xl font-semibold mb-4 text-gray-900 dark:text-white">
                             Update Transaction
@@ -476,7 +527,7 @@ function toggleSelectAll(event) {
                             </div>
                         </form>
                     </div>
-                </div>
+                </div> -->
                 <div v-if="isReportVisible" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-800/30">
                     <div @click.stop class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg max-w-lg w-full">
                         <h2 class="text-2xl font-bold mb-6 text-gray-900 dark:text-white text-center">
@@ -498,16 +549,20 @@ function toggleSelectAll(event) {
                             </div>
                             <div class="bg-blue-50 dark:bg-blue-900 rounded-lg p-4 flex items-center shadow">
                                 <div class="flex-1">
-                                    <div class="text-lg font-semibold text-blue-800 dark:text-blue-200">Total Sales
+                                    <div class="text-lg font-semibold text-blue-800 dark:text-blue-200">
+                                        Total Sales
                                     </div>
-                                    <div class="text-2xl font-bold text-blue-900 dark:text-blue-100">${{
-                                        filteredTransactions.reduce((sum, t) => sum + Number(t.total), 0)}}</div>
+                                    <div class="text-2xl font-bold text-blue-900 dark:text-blue-100">
+                                        ${{filteredTransactions.reduce((sum, t) => sum + Number(t.total_item_price),
+                                            0).toFixed(2)}}
+                                    </div>
                                 </div>
                                 <svg class="w-8 h-8 text-blue-400 dark:text-blue-200" fill="none" stroke="currentColor"
                                     stroke-width="2" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v8m-4-4h8"></path>
                                 </svg>
                             </div>
+
                             <div class="bg-yellow-50 dark:bg-yellow-900 rounded-lg p-4 shadow">
                                 <div class="text-lg font-semibold text-yellow-800 dark:text-yellow-200 mb-2">Status
                                     Breakdown</div>
