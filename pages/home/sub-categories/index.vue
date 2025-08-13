@@ -133,6 +133,7 @@ async function deleteSubCategory() {
         console.error('API error:', error.data || error);
     }
 }
+
 async function updateSubCategory() {
     if (!subcategoryToUpdate.value || !subcategoryToUpdate.value.sub_category_id) {
         alert('No subcategory selected for update.');
@@ -171,7 +172,6 @@ function resetNewSubCategory() {
         updated_at: null
     };
 }
-
 
 function closeAddSubCategoryModal() {
     resetNewSubCategory();

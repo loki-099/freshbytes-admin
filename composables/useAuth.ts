@@ -184,7 +184,8 @@ export const useAuth = () => {
     first_name,
     last_name,
     user_name,
-    user_phone
+    user_phone,
+    role
   }: {
     email: string
     password: string
@@ -192,6 +193,7 @@ export const useAuth = () => {
     last_name: string
     user_name: string
     user_phone: string
+    role: string
   }) => {
     isLoading.value = true
 
@@ -207,7 +209,8 @@ export const useAuth = () => {
           first_name,
           last_name,
           user_name,
-          user_phone
+          user_phone,
+          role
         },
       })
     } catch (error: any) {
