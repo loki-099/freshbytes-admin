@@ -69,7 +69,6 @@ const recentActivities = ref([])
 // Generate simulated recent activity based on dashboard data
 const generateRecentActivity = () => {
   const activities = []
-  const now = new Date()
 
   // Generate activities based on dashboard stats
   if (dashboardData.value.sellers.pending > 0) {
@@ -78,7 +77,7 @@ const generateRecentActivity = () => {
       type: 'seller_application',
       title: 'New seller application',
       description: `${dashboardData.value.sellers.pending} seller applications awaiting approval`,
-      timestamp: new Date(now.getTime() - Math.random() * 2 * 60 * 60 * 1000).toISOString(),
+      timestamp: new Date(baseDate.getTime() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
       actionRequired: true,
       link: '/home/sellers?status=pending'
     })
@@ -90,7 +89,7 @@ const generateRecentActivity = () => {
       type: 'user_registration',
       title: 'New user registrations',
       description: `${dashboardData.value.newUsers.count} new users registered recently`,
-      timestamp: new Date(now.getTime() - Math.random() * 4 * 60 * 60 * 1000).toISOString(),
+      timestamp: new Date(baseDate.getTime() - 4 * 60 * 60 * 1000).toISOString(), // 4 hours ago
       actionRequired: false
     })
   }
@@ -101,7 +100,7 @@ const generateRecentActivity = () => {
       type: 'transaction_completed',
       title: 'Recent transactions',
       description: `${dashboardData.value.transactions.count} transactions completed for ${formatCurrency(dashboardData.value.transactions.amount)}`,
-      timestamp: new Date(now.getTime() - Math.random() * 6 * 60 * 60 * 1000).toISOString(),
+      timestamp: new Date(baseDate.getTime() - 6 * 60 * 60 * 1000).toISOString(), // 6 hours ago
       actionRequired: false
     })
   }
@@ -112,7 +111,7 @@ const generateRecentActivity = () => {
       type: 'product_activity',
       title: 'Product catalog update',
       description: `${dashboardData.value.products.total} products currently in catalog`,
-      timestamp: new Date(now.getTime() - Math.random() * 8 * 60 * 60 * 1000).toISOString(),
+      timestamp: new Date(baseDate.getTime() - 8 * 60 * 60 * 1000).toISOString(), // 8 hours ago
       actionRequired: false
     })
   }
@@ -123,7 +122,7 @@ const generateRecentActivity = () => {
       type: 'seller_approved',
       title: 'Sellers approved',
       description: `${dashboardData.value.sellers.approved} sellers approved recently`,
-      timestamp: new Date(now.getTime() - Math.random() * 12 * 60 * 60 * 1000).toISOString(),
+      timestamp: new Date(baseDate.getTime() - 12 * 60 * 60 * 1000).toISOString(), // 12 hours ago
       actionRequired: false
     })
   }
@@ -134,7 +133,7 @@ const generateRecentActivity = () => {
     type: 'system_maintenance',
     title: 'System status',
     description: 'All systems operational - Platform running smoothly',
-    timestamp: new Date(now.getTime() - Math.random() * 24 * 60 * 60 * 1000).toISOString(),
+    timestamp: new Date(baseDate.getTime() - 24 * 60 * 60 * 1000).toISOString(), // 24 hours ago
     actionRequired: false
   })
 
@@ -166,12 +165,12 @@ const fetchDashboardData = async () => {
 
     if (response) {
       dashboardData.value = {
-        newUsers: response.new_users || { count: 0, percentage: 0, trend: 'neutral' },
-        totalUsers: response.total_users || { total: 0, sellers: 0, customers: 0, percentage: 0 },
-        transactions: response.transactions || { count: 0, amount: 0, percentage: 0, trend: 'neutral' },
-        totalSales: response.total_sales || { amount: 0, percentage: 0, trend: 'neutral' },
-        products: response.products || { total: 0, percentage: 0, trend: 'neutral' },
-        sellers: response.sellers || { pending: 0, approved: 0, totalApproved: 0 }
+        newUsers: response?.new_users ?? { count: 0, percentage: 0, trend: 'up' },
+        totalUsers: response?.total_users ?? { total: 0, sellers: 0, customers: 0, percentage: 0 },
+        transactions: response?.transactions ?? { count: 0, amount: 0, percentage: 0, trend: 'up' },
+        totalSales: response?.total_sales ?? { amount: 0, percentage: 0, trend: 'up' },
+        products: response?.products ?? { total: 0, percentage: 0, trend: 'up' },
+        sellers: response?.sellers ?? { pending: 0, approved: 0, totalApproved: 0 }
       }
 
       // Generate recent activity based on fetched data
@@ -188,14 +187,15 @@ const fetchDashboardData = async () => {
 
 // Fallback activity when API fails
 const generateFallbackActivity = () => {
-  const now = new Date()
+  // Use a fixed base date for deterministic timestamps
+  const baseDate = new Date('2023-01-01T12:00:00Z')
   return [
     {
       id: 'fallback_1',
       type: 'system_status',
       title: 'System online',
       description: 'Admin dashboard loaded successfully',
-      timestamp: new Date(now.getTime() - 5 * 60 * 1000).toISOString(),
+      timestamp: new Date(baseDate.getTime() - 5 * 60 * 1000).toISOString(), // 5 minutes ago
       actionRequired: false
     },
     {
@@ -203,7 +203,7 @@ const generateFallbackActivity = () => {
       type: 'user_activity',
       title: 'Platform monitoring',
       description: 'Monitoring user activity and system performance',
-      timestamp: new Date(now.getTime() - 15 * 60 * 1000).toISOString(),
+      timestamp: new Date(baseDate.getTime() - 15 * 60 * 1000).toISOString(), // 15 minutes ago
       actionRequired: false
     },
     {
@@ -211,7 +211,7 @@ const generateFallbackActivity = () => {
       type: 'maintenance',
       title: 'Routine maintenance',
       description: 'System maintenance completed successfully',
-      timestamp: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),
+      timestamp: new Date(baseDate.getTime() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
       actionRequired: false
     }
   ]
